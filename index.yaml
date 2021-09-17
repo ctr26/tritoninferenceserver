@@ -1,0 +1,13 @@
+apiVersion: v1
+entries:
+  tritoninferenceserver:
+  - apiVersion: v1
+    appVersion: "1.0"
+    created: "2021-09-17T10:49:10.631069973+01:00"
+    description: Triton Inference Server Helm Chart
+    digest: 5710af2fb8b70beae9934c871d040ab89af88030b0afe11e71fd8f07fa243ba5
+    name: tritoninferenceserver
+    urls:
+    - tritoninferenceserver-1.0.0.tgz
+    version: 1.0.0
+generated: "2021-09-17T10:49:10.630674855+01:00"
