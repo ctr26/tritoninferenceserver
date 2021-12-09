@@ -24,13 +24,33 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+# replicaCount: 1
+
+# image:
+#   imageName: nvcr.io/nvidia/tritonserver:21.10-py3
+#   pullPolicy: IfNotPresent
+#   modelRepositoryPath: s3://https://uk1s3.embassy.ebi.ac.uk:443/model-repository
+#   numGpus: 0
+# service:
+#   type: LoadBalancer
+# ingress:
+#   hostName: ""
+#   subPath: triton
+  
+
 replicaCount: 1
 
 image:
   imageName: nvcr.io/nvidia/tritonserver:21.08-py3
   pullPolicy: IfNotPresent
-  modelRepositoryPath: s3://imjoy-s3.pasteur.fr:80/model-repository
+  # modelRepositoryPath: s3://imjoy-s3.pasteur.fr:80/model-repository
+  modelRepositoryPath: /model-repository
+  modelSnapshotsPath: /model-snapshots
   numGpus: 0
+  memory: 32Gi
+  s3Endpoint: https://uk1s3.embassy.ebi.ac.uk
+  s3Bucket: s3://model-repository/
+  
 
 service:
   type: LoadBalancer

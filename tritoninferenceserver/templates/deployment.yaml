@@ -27,7 +27,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ template "tensorrt-inference-server.fullname" . }}
+  name: {{ template "tensorrt-inference-server.name" . }}
   namespace: {{ .Release.Namespace }}
   labels:
     app: {{ template "tensorrt-inference-server.name" . }}
@@ -45,22 +45,53 @@ spec:
       labels:
         app: {{ template "tensorrt-inference-server.name" . }}
         release: {{ .Release.Name }}
-
     spec:
       securityContext:
-        fsGroup: 1000
-        runAsUser: 1000
+        # fsGroup: 1000
+        runAsUser: 0
+      initContainers:
+        - name: model-copy-s3
+          # image: amazon/aws-cli
+          image: amazon/aws-cli
+          command: ["/bin/sh", "-c"]
+          args:
+            - >
+              aws --no-sign-request --endpoint-url {{ .Values.image.s3Endpoint }} s3 sync {{ .Values.image.s3Bucket }} {{ .Values.image.modelRepositoryPath }}
+          volumeMounts:
+            - mountPath: {{ .Values.image.modelRepositoryPath }}
+              name: model-repository
       containers:
-        - name: {{ .Chart.Name }}
-          image: "{{ .Values.image.imageName }}"
+        - name: {{ template "tensorrt-inference-server.name" . }}
+          image: nvcr.io/nvidia/tritonserver:21.10-py3
+          volumeMounts:
+            - mountPath: /dev/shm
+              name: dshm
+            - mountPath: {{ .Values.image.modelRepositoryPath }}
+              name: model-repository
+            - mountPath: {{ .Values.image.modelSnapshotsPath }}
+              name: model-snapshots
+          env:
+          - name: TF_FORCE_GPU_ALLOW_GROWTH
+            value: "true"
+          - name: MODEL_SNAPSHOTS_DIRECTORY
+            value: "{{ .Values.image.modelSnapshotsPath }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
-
           resources:
+            requests:
+              nvidia.com/gpu: "{{ .Values.image.numGpus }}"
+              memory: "{{ .Values.image.memory }}"
+              cpu: "4"
             limits:
-              nvidia.com/gpu: {{ .Values.image.numGpus }}
-
-          args: ["tritonserver", "--model-store={{ .Values.image.modelRepositoryPath }}", "--model-control-mode=poll", "--repository-poll-secs=5"]
-
+              nvidia.com/gpu: "{{ .Values.image.numGpus }}"
+              memory: "{{ .Values.image.memory }}"
+              cpu: "4"
+          command: ["/bin/sh"]
+          args:
+            - -c
+            - >-
+              apt update -yq &&
+              apt install libgl1-mesa-glx -y &&
+              tritonserver --model-store={{ .Values.image.modelRepositoryPath }} --log-verbose=1 --model-control-mode=poll --repository-poll-secs=60 --exit-on-error=false
           ports:
             - containerPort: 8000
               name: http
@@ -68,14 +99,30 @@ spec:
               name: grpc
             - containerPort: 8002
               name: metrics
-          livenessProbe:
-            httpGet:
-              path: /v2/health/live
-              port: http
-          readinessProbe:
-            initialDelaySeconds: 5
-            periodSeconds: 5
-            httpGet:
-              path: /v2/health/ready
-              port: http
-
+          # lifecycle:
+          #   postStart:
+          #     exec:
+          #       command:
+          #         - >
+          #           /bin/sh -c apt update -yq && apt install libgl1-mesa-glx -y
+                # command:
+                  #  - |
+                    # bash -c "apt update -yq && apt install libgl1-mesa-glx -y"
+          # livenessProbe:
+          #   httpGet:
+          #     path: /v2/health/live
+          #     port: http
+          # readinessProbe:
+          #   initialDelaySeconds: 5
+          #   periodSeconds: 5
+          #   httpGet:
+          #     path: /v2/health/ready
+          #     port: http
+      volumes:
+        - name: dshm
+          emptyDir:
+              medium: Memory
+        - name: model-repository
+          emptyDir: {}
+        - name: model-snapshots
+          emptyDir: {}
